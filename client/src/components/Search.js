@@ -16,6 +16,7 @@ class Main extends React.Component {
     this.state = {
       answers: "",
       set: false,
+      prediction: ""
     };
 
     this.handleUploadImage = this.handleUploadImage.bind(this);
@@ -28,6 +29,12 @@ class Main extends React.Component {
   handleUploadImage(ev) {
     ev.preventDefault();
 
+
+    const message = {
+      'Positive': 'Hurray! Positive tweet :)',
+      'Negative': 'Toxicity Alert! :('
+    }
+
     let data = new FormData();
     data = this.input.value
 
@@ -39,8 +46,10 @@ class Main extends React.Component {
       .then((response) => response.json())
       .then((data) => {
         const results = data;
+        const prediction = data.prediction;
+        const probabilties = data.probabilties;
         console.log(results);
-        // this.setState({ answers: answers, set: true });
+        this.setState({ answers: probabilties, set: true, prediction: message[prediction] });
       });
 
   }
@@ -61,29 +70,33 @@ class Main extends React.Component {
           <button type="submit" className={styles.matchCandidates}>Match Candidates!</button>
         </div>
         {this.state.set && (
-          <TableContainer component={Paper} style={{backgroundColor: 'rgba(3, 249, 241, 0.1)', fontWeight: 'bolder' }}>
+          <div>
+        <h3>{this.state.prediction}</h3>
+          <TableContainer component={Paper} style={{backgroundColor: 'rgba(29, 161, 242, 0.1)', fontWeight: 'bolder' }}>
             <Table sx={{ minWidth: 500 }} aria-label="simple table">
               <TableHead>
                 <TableRow>
-                  <TableCell style={{fontWeight: 'bolder'}}>Name</TableCell>
-                  <TableCell style={{fontWeight: 'bolder'}} align="right">Match</TableCell>
+                  <TableCell style={{fontWeight: 'bolder'}}>Model/Classifier</TableCell>
+                  <TableCell style={{fontWeight: 'bolder'}} align="right">Percentage</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {this.state.answers.map((row) => (
+                  <React.Fragment key={row.name}>
                   <TableRow
-                    key={row.name}
                     sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
                   >
                     <TableCell style={{fontWeight: 'bolder'}} component="th" scope="row">
-                      {row.name}
+                      {row[0]}
                     </TableCell>
-                    <TableCell style={{fontWeight: 'bolder'}} align="right">{row.percentage}</TableCell>
+                    <TableCell style={{fontWeight: 'bolder'}} align="right">{row[1]}</TableCell>
                   </TableRow>
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+          </div>
         )}
       </form>
     );

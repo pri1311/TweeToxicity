@@ -2,8 +2,11 @@ import json
 import os
 import pickle
 import re
+import statistics
+import statistics as st
 import string
 from glob import glob
+from statistics import mode
 
 import dotenv
 import nltk
@@ -229,6 +232,7 @@ client = tweepy.Client(
     access_token_secret=access_token_secret,
 )
 
+
 def get_tweets_from_hashtag(hashtag):
     try:
         data = client.search_recent_tweets(query=hashtag, max_results=300)
@@ -240,6 +244,7 @@ def get_tweets_from_hashtag(hashtag):
             "type": "error",
             "data": "Something went Wrong, Please check the entered username",
         }
+
 
 def twitterUserTweetRequest(username):
     try:
@@ -273,7 +278,8 @@ def twitterUserTweetRequest(username):
             "public_metrics": user_res["public_metrics"],
             "url": f"https://twitter.com/{user_res['username']}",
         }
-        return {"type": "success", "data": {"profile": profile, "tweets": tweet_res}}
+        return {"type": "success", "data": {
+            "profile": profile, "tweets": tweet_res}}
     except print(0):
         return {
             "type": "error",
@@ -282,8 +288,8 @@ def twitterUserTweetRequest(username):
 
 
 def load_models():
-    bow = glob("../models/bow/*")
-    tfidf = glob("../models/tfidf/*")
+    bow = sorted(glob("../models/bow/*"))
+    tfidf = sorted(glob("../models/tfidf/*"))
     bow_models = []
     tfidf_models = []
     for model_path in bow:
@@ -348,18 +354,24 @@ def preprocess_pipeline(tweets):
 
 
 def get_predictions(tweets):
+
     bow_models, tfidf_models = load_models()
     tweets = preprocess_pipeline(tweets)
+
     predictions = []
+    probalities = []
     bow = pickle.load(open("../models/vectorizers/bow.pickle", "rb"))
     tfidf = pickle.load(open("../models/vectorizers/tfidf.pickle", "rb"))
     bow_vector = bow.transform(tweets)
     tfidf_vector = tfidf.transform(tweets)
     for model in bow_models:
+        probalities.extend(model.predict_proba(bow_vector).tolist())
         predictions.append(model.predict(bow_vector).tolist())
     for model in tfidf_models:
+        probalities.extend(model.predict_proba(tfidf_vector).tolist())
         predictions.append(model.predict(tfidf_vector).tolist())
-    return predictions
+
+    return probalities, predictions
 
 
 def get_percentage_positive(predictions):
@@ -368,7 +380,6 @@ def get_percentage_positive(predictions):
         percentage_positive.append(np.sum(preds) / len(preds))
 
     return percentage_positive
-
 
 
 app = Flask(__name__)
@@ -384,32 +395,60 @@ def new():
 @cross_origin()
 def predict():
     args = request.args.to_dict()
-    query = args.get('query')
-    print(query)
-    if query.startswith('@'):
+    query = args.get("query")
+    bow = sorted(glob("../models/bow/*"))
+    tfidf = sorted(glob("../models/tfidf/*"))
+    models = bow + tfidf
+
+    if query.startswith("@"):
         username = query
-        # tweets = twitterUserTweetRequest(username)
-        with open("./predict.json", "r") as j:
-            tweets = json.loads(j.read())
+        tweets = twitterUserTweetRequest(username[1:])
         tweets = tweets.get("data").get("tweets")
         tweets = [tweet.get("text") for tweet in tweets]
-        predictions = get_predictions(tweets)
+        probalities, predictions = get_predictions(tweets)
         percentage_positive = get_percentage_positive(predictions)
-    
-    elif query.startswith('#'):
+        probalities = [
+            [x.split("/")[-1].split(".")[0], float(np.round(y, 4)) * 100]
+            for x, y in zip(models, percentage_positive)
+        ]
+        avg = np.mean(percentage_positive)
+        prediction = "Positive"
+        if avg < 0.5:
+            prediction = "Negative"
+        return {"tweet": query, "prediction": prediction,
+                "probabilties": probalities}
+
+    elif query.startswith("#"):
         tweets = get_tweets_from_hashtag(query)
-        predictions = get_predictions(tweets)
+        probalities, predictions = get_predictions(tweets)
         percentage_positive = get_percentage_positive(predictions)
-        return percentage_positive
+        pred = mode(np.array(predictions).flatten().tolist())
+        probalities = [
+            [x.split("/")[-1].split(".")[0], float(np.round(y, 4)) * 100]
+            for x, y in zip(models, percentage_positive)
+        ]
+        if pred == 0:
+            probalities = [[x[0], 100 - x[1]] for x in probalities]
+        probalities = sorted(probalities, key=lambda x: x[1], reverse=True)
+        avg = np.mean(percentage_positive)
+        prediction = ["Negative", "Positive"][pred]
+        return {"tweet": query, "prediction": prediction,
+                "probabilties": probalities}
 
     else:
-        predictions = get_predictions([query])
-        prediction = 'Positive' if predictions[0] else 'Negative'
-        return {
-            "tweet": query,
-            "prediction": prediction
-        }
-    
+        probalities, predictions = get_predictions([query])
+        predictions = np.array(predictions).flatten().tolist()
+        prediction = mode(predictions)
+        probalities = [
+            [x.split("/")[-1].split(".")[0],
+             float(np.round(y[prediction], 4)) * 100]
+            for x, y in zip(models, probalities)
+        ]
+        prediction = "Positive" if prediction else "Negative"
+        probalities = sorted(probalities, key=lambda x: x[1], reverse=True)
+        return {"tweet": query, "prediction": prediction,
+                "probabilties": probalities}
+
     return percentage_positive
 
 
