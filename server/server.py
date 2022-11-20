@@ -228,6 +228,17 @@ client = tweepy.Client(
     access_token_secret=access_token_secret,
 )
 
+def get_tweets_from_hashtag(hashtag):
+    try:
+        data = client.search_recent_tweets(query=hashtag, max_results=300)
+        tweets = data[0]
+        tweets = [tweet.text for tweet in tweets]
+        return tweets
+    except Exception as e:
+        return {
+            "type": "error",
+            "data": "Something went Wrong, Please check the entered username",
+        }
 
 def twitterUserTweetRequest(username):
     try:
@@ -331,8 +342,6 @@ def preprocess(textdata):
 
 
 def preprocess_pipeline(tweets):
-    tweets = tweets.get("data").get("tweets")
-    tweets = [tweet.get("text") for tweet in tweets]
     preprocessed_tweets = preprocess(tweets)
     return preprocessed_tweets
 
@@ -371,12 +380,31 @@ def new():
 @app.route("/predict", methods=["GET"])
 def predict():
     args = request.args.to_dict()
-    username = args.get("username")
-    # tweets = twitterUserTweetRequest(username)
-    with open("./predict.json", "r") as j:
-        tweets = json.loads(j.read())
-    predictions = get_predictions(tweets)
-    percentage_positive = get_percentage_positive(predictions)
+    query = args.get('query')
+    if query.startswith('@'):
+        username = query
+        # tweets = twitterUserTweetRequest(username)
+        with open("./predict.json", "r") as j:
+            tweets = json.loads(j.read())
+        tweets = tweets.get("data").get("tweets")
+        tweets = [tweet.get("text") for tweet in tweets]
+        predictions = get_predictions(tweets)
+        percentage_positive = get_percentage_positive(predictions)
+    
+    elif query.startswith('#'):
+        tweets = get_tweets_from_hashtag(query)
+        predictions = get_predictions(tweets)
+        percentage_positive = get_percentage_positive(predictions)
+        return percentage_positive
+
+    else:
+        predictions = get_predictions([query])
+        prediction = 'Positive' if predictions[0] else 'Negative'
+        return {
+            "tweet": query,
+            "prediction": prediction
+        }
+    
     return percentage_positive
 
 
