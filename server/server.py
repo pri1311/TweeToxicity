@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from emot.emo_unicode import EMOTICONS_EMO
 from flask import Flask, jsonify, request
+from flask_cors import CORS, cross_origin
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
@@ -369,7 +370,9 @@ def get_percentage_positive(predictions):
     return percentage_positive
 
 
+
 app = Flask(__name__)
+cors = CORS(app)
 
 
 @app.route("/", methods=["GET"])
@@ -378,9 +381,11 @@ def new():
 
 
 @app.route("/predict", methods=["GET"])
+@cross_origin()
 def predict():
     args = request.args.to_dict()
     query = args.get('query')
+    print(query)
     if query.startswith('@'):
         username = query
         # tweets = twitterUserTweetRequest(username)

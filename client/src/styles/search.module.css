@@ -1,0 +1,17 @@
+.wrapper {
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.matchCandidates, .fileInput{
+    border: none;
+    outline: none;
+    padding: 1em;
+    box-shadow: rgba(0, 0, 0, 0.15) 1.95px 1.95px 2.6px;
+    background-color: rgb(238, 238, 238);
+}
+
+.matchCandidates {
+    margin-bottom: 2em;
+}
