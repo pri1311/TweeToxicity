@@ -235,7 +235,7 @@ client = tweepy.Client(
 
 def get_tweets_from_hashtag(hashtag):
     try:
-        data = client.search_recent_tweets(query=hashtag, max_results=300)
+        data = client.search_recent_tweets(query=hashtag)
         tweets = data[0]
         tweets = [tweet.text for tweet in tweets]
         return tweets
@@ -356,7 +356,6 @@ def preprocess_pipeline(tweets):
 def get_predictions(tweets):
 
     bow_models, tfidf_models = load_models()
-    tweets = preprocess_pipeline(tweets)
 
     predictions = []
     probalities = []
@@ -381,6 +380,13 @@ def get_percentage_positive(predictions):
 
     return percentage_positive
 
+def get_frequency_dict(tweets):
+    freq = {}
+    tweets = ' '.join(tweets).split()
+    for word in tweets:
+        freq[word] = freq.get(word, 0) + 1
+    return freq
+
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -399,27 +405,47 @@ def predict():
     bow = sorted(glob("../models/bow/*"))
     tfidf = sorted(glob("../models/tfidf/*"))
     models = bow + tfidf
+    print(query)
+
+    idx = models.index('../models/tfidf/Logistic_Regression_tfidf.pkl')
 
     if query.startswith("@"):
         username = query
         tweets = twitterUserTweetRequest(username[1:])
         tweets = tweets.get("data").get("tweets")
         tweets = [tweet.get("text") for tweet in tweets]
+        tweets = preprocess_pipeline(tweets)
+        freq = get_frequency_dict(tweets)
         probalities, predictions = get_predictions(tweets)
         percentage_positive = get_percentage_positive(predictions)
         probalities = [
             [x.split("/")[-1].split(".")[0], float(np.round(y, 4)) * 100]
             for x, y in zip(models, percentage_positive)
         ]
+
         avg = np.mean(percentage_positive)
+        lr_pp = float(np.round(percentage_positive[idx], 4) )* 100
+        data = [100-lr_pp, lr_pp]
         prediction = "Positive"
         if avg < 0.5:
             prediction = "Negative"
+            data = [lr_pp, 100-lr_pp]
         return {"tweet": query, "prediction": prediction,
-                "probabilties": probalities}
+                "probabilties": probalities, "data": {
+                    "datasets": [{
+                        "data": data
+                    }],
+                    "labels": [
+                        'Negative',
+                        'Positive'
+                    ]
+                }, "freq": freq}
 
     elif query.startswith("#"):
         tweets = get_tweets_from_hashtag(query)
+        print(tweets)
+        tweets = preprocess_pipeline(tweets)
+        freq = get_frequency_dict(tweets)
         probalities, predictions = get_predictions(tweets)
         percentage_positive = get_percentage_positive(predictions)
         pred = mode(np.array(predictions).flatten().tolist())
@@ -427,16 +453,29 @@ def predict():
             [x.split("/")[-1].split(".")[0], float(np.round(y, 4)) * 100]
             for x, y in zip(models, percentage_positive)
         ]
+        avg = np.mean(percentage_positive)
+        lr_pp = float(np.round(percentage_positive[idx], 4) )* 100
+        data = [100-lr_pp, lr_pp]
         if pred == 0:
             probalities = [[x[0], 100 - x[1]] for x in probalities]
+            data = [lr_pp, 100-lr_pp]
         probalities = sorted(probalities, key=lambda x: x[1], reverse=True)
         avg = np.mean(percentage_positive)
         prediction = ["Negative", "Positive"][pred]
         return {"tweet": query, "prediction": prediction,
-                "probabilties": probalities}
+                "probabilties": probalities, "data": {
+                    "datasets": [{
+                        "data": data
+                    }],
+                    "labels": [
+                        'Negative',
+                        'Positive'
+                    ]
+                }, "freq": freq}
 
     else:
-        probalities, predictions = get_predictions([query])
+        tweets = preprocess_pipeline([query])
+        probalities, predictions = get_predictions(tweets)
         predictions = np.array(predictions).flatten().tolist()
         prediction = mode(predictions)
         probalities = [
@@ -448,8 +487,6 @@ def predict():
         probalities = sorted(probalities, key=lambda x: x[1], reverse=True)
         return {"tweet": query, "prediction": prediction,
                 "probabilties": probalities}
-
-    return percentage_positive
 
 
 if __name__ == "__main__":

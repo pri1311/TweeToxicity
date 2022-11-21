@@ -13,6 +13,15 @@
     background-color: rgb(238, 238, 238);
 }
 
+.vizWrapper {
+    display: flex !important;
+    flex-direction: row;
+    align-items: flex-start;
+    height: 50vh;
+    justify-content: space-around;
+    margin: 0.5em 20em;
+}
+
 .matchCandidates {
     margin-bottom: 2em;
 }
