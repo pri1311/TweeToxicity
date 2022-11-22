@@ -41,8 +41,8 @@ TweeToxicity is a program that analyzes user profiles or hastags based on the re
 
 ## Screenshots
 
-![Hashtag Screenshot](https://github.com/pri1311/TweeToxicity/screenshots/hashtag.png)
-![User Screenshot](https://github.com/pri1311/TweeToxicity/screenshots/profile.png)
+![Hashtag Screenshot](https://github.com/pri1311/TweeToxicity/blob/master/screenshots/hashtag.png)
+![User Screenshot](https://github.com/pri1311/TweeToxicity/blob/master/screenshots/profile.png)
 
   ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 ## Tech Stack
